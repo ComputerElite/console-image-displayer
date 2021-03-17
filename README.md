@@ -9,12 +9,13 @@ Since this was a personal project I'll most likely not accept pull Requests but 
 
 # Features
    - Displays images/camera feeds in the console
-   - everything can be done in grayscale or color
+   - Everything can be done in grayscale or color
    - It can display every image in every size in the console
-   - you can use a webcam to get a live feed
+   - You can use a webcam to get a live feed
    - Every frame of the webcam/every picture can be saved (as seen in the console but in higher quality)
    - You can change 2 values which are crucial for the color detection
    - Option based menu which is kinda intuitive
+   - Can display inverted (not used in the exe but in the code)
 **Note:** Color representation isn't good but it can be tweaked by changing the values you are being asked after choosing a color mode.
 
-You can use it in your own Programs but you'd probably more likely be better of using it as inspiration. Also Color pictures are very slow to Display since I use Console.Write for every character instead of writing all at one (so I can write Colors)
+You can use it in your own Programs but you'd probably more likely be better of using it as inspiration (e. g. it has it's own Color class). Also Color pictures are very slow to Display since I use Console.Write for every character instead of writing all at one (so I can write Colors)
