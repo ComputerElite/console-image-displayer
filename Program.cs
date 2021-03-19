@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -33,7 +33,7 @@ namespace ImageDisplayer
         static bool CanDraw = true;
         static bool color = true;
         static bool camera = false;
-        static int minVar = 20;
+        static int minVar = 10;
         static int maxVar = 75;
         static int frameCounter = 0;
         static bool save = false;
@@ -73,14 +73,17 @@ namespace ImageDisplayer
                         folder = ofd.FileName;
                     }
                 }
+                //Get all cameras and print in console
                 m.getListCameraUSB();
                 Console.Write("Camera: ");
-                
+                //Open the camera stream
                 m.OpenCamera(Convert.ToInt32(Console.ReadLine()));
+                Console.Clear();
+                //Set up new frame event
                 m.FrameRecievedEvent += DrawFrame;
             } else
             {
-                Image i;
+                Image i = null;
                 Console.Write("Imagepath: ");
                 String imagePath = Console.ReadLine().Replace("\"", "");
                 if (imagePath == "")
@@ -94,23 +97,59 @@ namespace ImageDisplayer
                     //Console.ReadLine();
 
                     //return;
+
+                    //Get image from clipboard
                     BitmapSource source = Clipboard.GetImage();
+                    //Convert BitmapSource to Bitmap
                     Bitmap bmp = new Bitmap(source.PixelWidth, source.PixelHeight, PixelFormat.Format32bppPArgb);
                     BitmapData data = bmp.LockBits(new Rectangle(System.Drawing.Point.Empty, bmp.Size), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
                     source.CopyPixels(Int32Rect.Empty, data.Scan0, data.Height * data.Stride, data.Stride);
                     bmp.UnlockBits(data);
 
+                    //Convert Bitmap to Image
                     i = d.ImageToImageClass(bmp, Console.WindowWidth, Console.WindowHeight, false, color, maxVar, minVar);
                 }
-                else i = d.ImageToImageClass(imagePath, Console.WindowWidth, Console.WindowHeight, false, color, maxVar, minVar);
+                else
+                {
+                    //experimental
+                    if(imagePath.EndsWith(".mp4"))
+                    {
+                        String fps = "25";
+                        if (Directory.Exists("tmp")) Directory.Delete("tmp", true);
+                        Directory.CreateDirectory("tmp");
+                        //vid to image sequence
+                        Process pr = Process.Start("ffmpeg.exe", "-i \"" + imagePath + "\" -vsync 0 \"" + AppDomain.CurrentDomain.BaseDirectory + "tmp\\frame_%d.png\"");
+                        pr.WaitForExit();
+                        if (File.Exists("audio.mp3")) File.Delete("audio.mp3");
+                        pr = Process.Start("ffmpeg.exe", "-i \"" + imagePath + "\" audio.mp3");
+                        pr.WaitForExit();
+                        int frame = 1;
+                        while (true)
+                        {
+                            if (!File.Exists("tmp\\frame_" + frame + ".png")) break;
+                            d.ImageClassToPicture(d.ImageToImageClass("tmp\\frame_" + frame + ".png", Console.WindowWidth, Console.WindowHeight, false, color, maxVar, minVar, false), "tmp\\converted_" + frame + ".png", color);
+                            Console.WriteLine("tmp\\conveted_" + frame + ".png saved");
+                            frame++;
+                        }
+                        if (File.Exists("out.mp4")) File.Delete("out.mp4");
+                        pr = Process.Start("ffmpeg.exe", "-r " + fps + "/1 -start_number 0 -i \"" + AppDomain.CurrentDomain.BaseDirectory + "tmp\\converted_%d.png\" -acodec copy -vcodec copy -c:v libx264 -vf \"fps = " + fps + ", format = yuv420p\" out.mp4");
+                        pr.WaitForExit();
+                    } else
+                    {
+                        //Convert Bitmap to Image
+                        i = d.ImageToImageClass(imagePath, Console.WindowWidth, Console.WindowHeight, false, color, maxVar, minVar);
+                    }
+                }
 
+                Console.ForegroundColor = ConsoleColor.White;
                 Console.Write("Do you want to save the image to disk (y/n)?: ");
                 if(Console.ReadLine() == "y")
                 {
                     SaveFileDialog s = new SaveFileDialog();
-                    s.Filter = "jpg (*.jpg)|*.jpg|png (*.png)|*.png";
+                    s.Filter = "png (*.png)|*.png|jpg (*.jpg)|*.jpg";
                     if(s.ShowDialog() == DialogResult.OK)
                     {
+                        //Convert Image to Bitmap (but this time to the thing you see in the console)
                         d.ImageClassToPicture(i, s.FileName, color);
                     }
                 }
@@ -119,7 +158,7 @@ namespace ImageDisplayer
                 //image.InvertImage();
                 //d.DisplayInConsole(image, color);
             }
-            
+            //Just wait for input so the window doesn't close
             Console.ReadLine();
         }
 
@@ -130,6 +169,7 @@ namespace ImageDisplayer
             Image image = null;
             try
             {
+                //convert Bitmap to image
                 image = d.ImageToImageClass(frame, Console.WindowWidth, Console.WindowHeight, true, color, maxVar, minVar);
             }
             catch
@@ -139,6 +179,7 @@ namespace ImageDisplayer
 
             if(save)
             {
+                //Save image as picture
                 frameCounter++;
                 d.ImageClassToPicture(image, folder + "\\frame_" + frameCounter + ".png", color);
             }
@@ -167,6 +208,7 @@ namespace ImageDisplayer
 
         public void getListCameraUSB()
         {
+            //get input devices
             videoDevices = new FilterInfoCollection(FilterCategory.VideoInputDevice);
             int i = 0;
             if (videoDevices.Count != 0)
@@ -174,6 +216,7 @@ namespace ImageDisplayer
                 // add all devices to combo
                 foreach (FilterInfo device in videoDevices)
                 {
+                    //Write all cameras in console
                     Console.WriteLine(i + ". " + device.Name);
                     i++;
                 }
@@ -189,6 +232,7 @@ namespace ImageDisplayer
             try
             {
                 usbcamera = index.ToString();
+                //Get all cameras
                 videoDevices = new FilterInfoCollection(FilterCategory.VideoInputDevice);
                 if (videoDevices.Count != 0)
                 {
@@ -202,12 +246,14 @@ namespace ImageDisplayer
                 {
                    Console.WriteLine("No Camera devices found");
                 }
+                //get camera
                 videoDevice = new VideoCaptureDevice(videoDevices[Convert.ToInt32(usbcamera)].MonikerString);
                 snapshotCapabilities = videoDevice.SnapshotCapabilities;
                 if (snapshotCapabilities.Length == 0)
                 {
                     //MessageBox.Show("Camera Capture Not supported");
                 }
+                //Start camera and set up frame event
                 videoDevice.Start();
                 videoDevice.NewFrame += Display;
             }
@@ -221,31 +267,63 @@ namespace ImageDisplayer
 
         private void Display(object sender, NewFrameEventArgs eventArgs)
         {
+            //Fire fram event
             FrameRecievedEvent(eventArgs.Frame);
         }
     }
 
     public class ImageDisplayer
     {
-        public static readonly string[] luminance = new string[] { " ", "'", ".", ",", "-", "~", ":", ";", "=", "!", "*", "#", "$", "@", "█" };
-        public static readonly float heightToWidthRatio = 0.4f;
+        public static readonly string[] luminance = new string[] { " ", "'", ".", ",", "-", "~", ":", ";", "=", "+", "!", "*", "#", "$", "@", "█" };
+        //character width is half of the height
+        public static readonly float heightToWidthRatio = 0.5f;
 
-        public Image ImageToImageClass(String imagePath, int width, int height, bool cropimage = false, bool color = true, int maxVariation = 75, int minVariation = 20)
+        /// <summary>
+        /// Converts a Image file to a imageclass
+        /// </summary>
+        /// <param name="imagePath">SourceImage path</param>
+        /// <param name="width">desired width</param>
+        /// <param name="height">desired height</param>
+        /// <param name="cropimage">crop the image at the desired height?</param>
+        /// <param name="color">want color? set this to true</param>
+        /// <param name="maxVariation">color similarity (0 to 255)</param>
+        /// <param name="minVariation">grayscale trigger (0 to 255)</param>
+        /// <param name="Display">want to display in console? Set this to true</param>
+        /// <returns>converted image</returns>
+        public Image ImageToImageClass(String imagePath, int width, int height, bool cropimage = false, bool color = true, int maxVariation = 75, int minVariation = 20, bool Display = true)
         {
+            //Load Bitmap from path.
             Bitmap imageSource = new Bitmap(imagePath);
-            return ImageToImageClass(imageSource, width, height, cropimage, color);
+            return ImageToImageClass(imageSource, width, height, cropimage, color, maxVariation, minVariation, Display);
         }
 
-        public Image ImageToImageClass(Bitmap imageSource, int width, int height, bool cropimage = false, bool color = true, int maxVariation = 75, int minVariation = 20)
+        /// <summary>
+        /// Converts a Bitmap to a imageclass
+        /// </summary>
+        /// <param name="imageSource">Bitmap as input</param>
+        /// <param name="width">desired width</param>
+        /// <param name="height">desired height</param>
+        /// <param name="cropimage">crop the image at the desired height?</param>
+        /// <param name="color">want color? set this to true</param>
+        /// <param name="maxVariation">color similarity (0 to 255)</param>
+        /// <param name="minVariation">grayscale trigger (0 to 255)</param>
+        /// <param name="Display">want to display in console? Set this to true</param>
+        /// <returns>converted image</returns>
+        public Image ImageToImageClass(Bitmap imageSource, int width, int height, bool cropimage = false, bool color = true, int maxVariation = 75, int minVariation = 20, bool Display = true)
         {
             int imageWidth = imageSource.Width;
             int imageHeight = imageSource.Height;
+            //Get amount of pixels to check in corelation to the deserved width
             int adjustedHeight = (int)Math.Floor(imageHeight / (imageWidth / (double)width) * heightToWidthRatio);
+            //Distance between pixel checks (width)
             float adjustedWidthCalc = (float)imageWidth / (float)width;
+            //Distance between pixel checks (height)
             float adjustedHeightCalc = (float)imageHeight / (float)(imageHeight / (imageWidth / (float)width)) / heightToWidthRatio;
+            //brightness fraction
             double fraction = 1 / ((double)255 / luminance.Length + 1);
             width--;
             if (cropimage && adjustedHeight > height) adjustedHeight = height - 1;
+            //Create 2d color array with deserved size
             Color[,] image = new Color[width, adjustedHeight];
             String print = "";
 
@@ -254,32 +332,56 @@ namespace ImageDisplayer
                 for (int w = 0; w < width; w++)
                 {
                     //Console.WriteLine(w + ", " + h);
+                    //Convert pixel to color
                     Color c = new Color(imageSource.GetPixel((int)(adjustedWidthCalc * w), (int)(adjustedHeightCalc * h)));
+                    //Set values for color determiting
                     c.minVariation = minVariation;
                     c.variation = maxVariation;
-                    if (!color) print += luminance[(int)Math.Floor(c.ToWhiteBlack() * fraction)];
-                    else
+                    if(Display)
                     {
-                        Console.ForegroundColor = c.GetColor();
-                        try
+                        //get luminance of color
+                        if (!color) print += luminance[(int)Math.Floor(c.ToWhiteBlack() * fraction)];
+                        else
                         {
-                            Console.Write(luminance[(int)Math.Floor(c.ToWhiteBlack() * fraction)]);
+                            //Set foreground color for writing
+                            Console.ForegroundColor = c.GetColor();
+                            try
+                            {
+                                //Write luminance of color
+                                Console.Write(luminance[(int)Math.Floor(c.ToWhiteBlack() * fraction)]);
+                            }
+                            catch { }
                         }
-                        catch { }
                     }
+                    //Add Color to 2d color array
                     image[w, h] = c;
                 }
-                if (!color) print += "\n";
-                else Console.WriteLine();
+                if(Display)
+                {
+                    if (!color) print += "\n";
+                    else Console.WriteLine();
+                }
             }
-            if (!color) Console.Write(print);
-            return new Image(width, adjustedHeight, image);
+            if (Display)
+            {
+                if (!color) Console.Write(print);
+            }
+            //Create image
+             return new Image(width, adjustedHeight, image);
         }
 
+        /// <summary>
+        /// Saves a image in console format
+        /// </summary>
+        /// <param name="image">input image class</param>
+        /// <param name="destination">save location</param>
+        /// <param name="color">want color? set this to true</param>
         public void ImageClassToPicture(Image image, String destination, bool color = true)
         {
+            //Set up output Bitmap
             Bitmap output = new Bitmap(image.width * 16, image.height * 32);
             Graphics g = Graphics.FromImage(output);
+            //Set background console black
             g.FillRectangle(Brushes.Black, 0, 0, output.Width, output.Height);
             Font font = new Font("Consolas", 20);
             double fraction = 1 / ((double)255 / luminance.Length + 1);
@@ -288,15 +390,19 @@ namespace ImageDisplayer
                 for (int w = 0; w < image.width; w++)
                 {
                     //Console.ForegroundColor = image.imageColors[w, h].GetColor();
+                    //Set color of brush
                     Brush b = new SolidBrush(color ? Color.FromConsoleColor(image.imageColors[w, h].GetColor()).ToColor() : System.Drawing.Color.FromArgb(255, 255, 255));
+                    //Write character to Bitmap at right position
                     g.DrawString(luminance[(int)Math.Floor(image.imageColors[w, h].ToWhiteBlack() * fraction)], font, b, w * 16, h * 32);
                 }
             }
+            //Save bitmap
             output.Save(destination);
         }
 
         public void DisplayInConsole(Image image, bool withColor = true)
         {
+            //Displays image in console. Obsolete but can still be used if needed.
             double fraction = 1 / ((double)255 / luminance.Length + 1);
             if(withColor)
             {
@@ -372,12 +478,15 @@ namespace ImageDisplayer
             }
         }
 
+        //Presets
         public void SetMinColors()
         {
+            
             SetMinVariation(0);
             SetMaxVariation(50);
         }
 
+        //Presets
         public void SetDefault()
         {
             SetMaxVariation(new Color().variation);
@@ -410,6 +519,7 @@ namespace ImageDisplayer
 
         public System.Drawing.Color ToColorAdjusted()
         {
+            //Normalise color to max values
             int[] colors = new int[] { r, g, b };
             Array.Sort(colors);
             double rr = 1;
@@ -428,11 +538,13 @@ namespace ImageDisplayer
 
         public System.Drawing.Color ToColor()
         {
+            //convert to System.Drawing.Color
             return System.Drawing.Color.FromArgb(r, g, b);
         }
 
         public static Color FromConsoleColor(ConsoleColor c)
         {
+            //ConsoleColor to Color
             switch(c)
             {
                 case ConsoleColor.Black:
@@ -493,6 +605,9 @@ namespace ImageDisplayer
             //}
             //Console.WriteLine(rr + ", " + gr + ", " + br);
 
+            //Determite color
+            //variation defines the similarity a color has
+            //minVariation the trigger for grayscale
             if (IsBiggest(r, g, b))
             {
                 if (Math.Abs(Math.Abs(r - b) - Math.Abs(r - g)) < minVariation)
