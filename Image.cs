@@ -51,6 +51,7 @@ namespace ImageDisplayer
             return this;
         }
 
+        // Heh this is old normalize code. idk where I used to use it
         public System.Drawing.Color ToColorAdjusted()
         {
             //Normalise color to max values
@@ -65,6 +66,7 @@ namespace ImageDisplayer
                 gr = (double)g / colors[2];
                 br = (double)b / colors[2];
             }
+            
             System.Drawing.Color c = System.Drawing.Color.FromArgb((int)Math.Floor(rr * 255), (int)Math.Floor(gr * 255), (int)Math.Floor(br * 255));
             //Console.WriteLine(c);
             return c;
@@ -76,6 +78,7 @@ namespace ImageDisplayer
             return System.Drawing.Color.FromArgb(r, g, b);
         }
 
+        // Creeate a list of available ConsoleColors with corresponding rgb values
         public static List<ColorHolder> colors { get; set; } = new List<ColorHolder>
         {
             //new ColorHolder(ConsoleColor.Black, new Color(0, 0, 0)),
@@ -114,96 +117,45 @@ namespace ImageDisplayer
         public ColorHolder GetColor()
         {
 
-            ColorHolder nearest = new ColorHolder();
-            int nearestValue = this.Subtract(nearest.color);
-            //Console.WriteLine(nearestValue);
+            
+            // We want color not brightness. So make the biggest one of the values 255 and scale the rest proportionally
+            double multiply = 1.0;
+            if (255 / (double)r < multiply) multiply = 255 / (double)r;
+            if (255 / (double)g < multiply) multiply = 255 / (double)g;
+            if (255 / (double)b < multiply) multiply = 255 / (double)b;
+            Color normalized = new Color((int)(r * multiply), (int)(g * multiply), (int)(b * multiply));
 
+            // Create the nearest color holder
+            ColorHolder nearest = new ColorHolder();
+            int nearestValue = normalized.Subtract(nearest.color);
+            /*
             if (Math.Abs(r - g) < min && Math.Abs(g - b) < min && Math.Abs(b - r) < min)
             {
                 return white;
             }
+            */
 
             for (int i = 0; i < colors.Count; i++)
             {
-                int subtracted = this.Subtract(colors[i].color);
-                //Console.WriteLine(subtracted);
+                // Subtract the colors to get the difference between them
+                int subtracted = normalized.Subtract(colors[i].color);
                 if (subtracted < nearestValue)
                 {
-                    //Console.WriteLine("Found better");
+                    // a nearer color has been found. Save it-
                     nearestValue = subtracted;
                     nearest = colors[i];
                 }
             }
             return nearest;
-
-            /*
-            // * Old code bad. Change my mind
-            if (IsBiggest(r, g, b))
-            {
-                if (Math.Abs(Math.Abs(r - b) - Math.Abs(r - g)) < minVariation)
-                {
-                    if (r < 50) return ConsoleColor.Black;
-                    if (r < 125) return ConsoleColor.DarkGray;
-                    if (r < 175) return ConsoleColor.Gray;
-                    return ConsoleColor.White;
-                }
-                if (Math.Abs(r - g) < variation) return ConsoleColor.Yellow;
-                if (Math.Abs(r - b) < variation) return ConsoleColor.DarkMagenta;
-                if (r < 100) return ConsoleColor.DarkRed;
-                return ConsoleColor.Red;
-            } else if(IsBiggest(g, r, b))
-            {
-                if (Math.Abs(Math.Abs(g - b) - Math.Abs(g - r)) < minVariation)
-                {
-                    if (g < 50) return ConsoleColor.Black;
-                    if (g < 125) return ConsoleColor.DarkGray;
-                    if (g < 175) return ConsoleColor.Gray;
-                    return ConsoleColor.White;
-                }
-                if (Math.Abs(g - r) < variation) return ConsoleColor.Yellow;
-                if (Math.Abs(g - b) < variation) return ConsoleColor.Cyan;
-                if (g < 100) return ConsoleColor.DarkGreen;
-                return ConsoleColor.Green;
-            } else if(IsBiggest(b, r, g))
-            {
-                if (Math.Abs(Math.Abs(b - r) - Math.Abs(b - g)) < minVariation)
-                {
-                    if (b < 50) return ConsoleColor.Black;
-                    if (b < 125) return ConsoleColor.DarkGray;
-                    if (b < 175) return ConsoleColor.Gray;
-                    return ConsoleColor.White;
-                }
-                if (Math.Abs(b - r) < variation) return ConsoleColor.DarkMagenta;
-                if (Math.Abs(b - g) < variation) return ConsoleColor.Cyan;
-                if (b < 100) return ConsoleColor.DarkBlue;
-                return ConsoleColor.Blue;
-            } else if(b == r && b == g && g == r || Math.Abs(r - g) < minVariation && Math.Abs(b - g) < minVariation && Math.Abs(b - r) < minVariation)
-            {
-                if (r < 50) return ConsoleColor.Black;
-                if (r < 125) return ConsoleColor.DarkGray;
-                if (r < 175) return ConsoleColor.Gray;
-                return ConsoleColor.White;
-            }
-            return ConsoleColor.Black;
-            */
-        }
-
-        private bool IsBiggest(float check, float other1, float other2)
-        {
-            return check > other1 && check > other2;
         }
         public int ToWhiteBlack()
         {
             return (int)(0.299 * r + 0.587 * g + 0.114 * b);
         }
 
-        public static Color operator -(Color a, Color b)
-        {
-            return new Color(a.r - b.r, a.g - b.g, a.b - b.b);
-        }
-
         public int Subtract(Color b)
         {
+            // Return the total distance of red, green and blue
             return Math.Abs(r - b.r) + Math.Abs(g - b.g) + Math.Abs(this.b - b.b);
         }
     }

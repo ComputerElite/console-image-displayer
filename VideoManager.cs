@@ -12,6 +12,7 @@ using ImageDisplayer;
 using System.Media;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using ComputerUtils.FileManaging;
 
 namespace ComputerUtils.Videos
 {
@@ -29,7 +30,7 @@ namespace ComputerUtils.Videos
         public delegate void VideoProcessed(VideoProcessedEventArgs args);
         public event VideoProcessed VideoProcessedEvent;
 
-        public VideoManager(String videoFolderPath)
+        public VideoManager(string videoFolderPath)
         {
             this.videoFolderPath = videoFolderPath;
             this.attributes = JsonSerializer.Deserialize<VideoAttributes>(File.ReadAllText(videoFolderPath + "\\meta.json"));
@@ -66,24 +67,25 @@ namespace ComputerUtils.Videos
             }
             p = Process.Start("ffmpeg.exe", "-i \"" + file + "\" -start_number 0 -vsync 0 \"" + videoFolderPath + "\\" + name + "\\frame_%d.png\"");
             p.WaitForExit();
-            p = Process.Start("ffmpeg.exe", "-i \"" + file + "\" \"" + videoFolderPath + "\\" + name + "\\audio.mp3\"");
+            p = Process.Start("ffmpeg.exe", "-i \"" + file + "\" \"" + videoFolderPath + "\\" + name + "\\audio.wav\"");
             p.WaitForExit();
             VideoAttributes a = new VideoAttributes(file);
             File.WriteAllText(videoFolderPath + "\\" + name + "\\meta.json", JsonSerializer.Serialize(a));
             VideoProcessedEvent(new VideoProcessedEventArgs(name, a.frames, a.length, a.fPS, a.success));
         }
 
-        public void Play()
+        public void Play(bool color = false)
         {
             playing = true;
             t = new Thread(VideoPlayerThread);
-            t.Start();
+            t.Start(color);
         }
 
         public int playedFrames = 0;
 
-        private void VideoPlayerThread()
+        private void VideoPlayerThread(object color = null)
         {
+            bool c = color == null ? false : (bool)color;
             StartTime = DateTime.Now;
             ImageDisplayer.ImageDisplayer d = new ImageDisplayer.ImageDisplayer();
             Process pr = null;
@@ -100,6 +102,7 @@ namespace ComputerUtils.Videos
             List<DateTime> frameTimes = new List<DateTime>();
             frameTimes.Add(DateTime.Now);
             int i = 0;
+            Console.Clear();
             while (playing)
             {
                 int frame = (int)Math.Floor((DateTime.Now - StartTime).TotalSeconds * this.attributes.fPS) + this.attributes.start;
@@ -115,9 +118,9 @@ namespace ComputerUtils.Videos
                 }
                 Bitmap bmp = new Bitmap(videoFolderPath + "\\frame_" + frame + ".png");
                 DateTime t = DateTime.Now;
-                d.ImageToImageClass(bmp, width, height, true, true, true);
+                d.ImageToImageClass(bmp, width, height, true, c, true);
                 Console.SetCursorPosition(0, 0);
-                Console.Write((playedFrames / (DateTime.Now - frameTimes[0]).TotalSeconds) + " fps");
+                Console.Title = "Playback of video, Color: " + c + ", " + (playedFrames / (DateTime.Now - frameTimes[0]).TotalSeconds) + " fps";
                 if (frameTimes.Count > 20)
                 {
                     frameTimes.RemoveAt(0);
@@ -127,9 +130,6 @@ namespace ComputerUtils.Videos
                 playedFrames++;
                 i++;
                 if (i == 5) i = 0;
-                //Console.Clear();
-                //int wait = (1000 / Program._client.Count) - (t - DateTime.Now).Milliseconds;
-                //Program.Commands.Log("sent message " + client, 0);
             }
         }
     }
@@ -160,7 +160,7 @@ namespace ComputerUtils.Videos
         public bool success { get; set; } = true;
         public int frames { get; set; } = 0;
         public int start { get; set; } = 0;
-        public String name { get; set; } = "";
+        public string name { get; set; } = "";
 
         public VideoAttributes()
         {
@@ -199,6 +199,7 @@ namespace ComputerUtils.Videos
             {
                 this.success = false;
             }
+            if (!File.Exists(file.Replace("meta.json", "") + "frame_0.png")) start = 1;
         }
     }
 }

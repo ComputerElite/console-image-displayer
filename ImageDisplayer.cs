@@ -12,8 +12,14 @@ namespace ImageDisplayer
         //public static readonly string[] luminance = new string[] { " ", ";", "█" };
         //public static readonly string[] luminance = new string[] { " ", ";", "█", "█", "█" };
         public Config config { get; set; } = Config.Load();
+        public double fraction = 0;
         //public static readonly string[] luminance = new string[] { " ", "'", ".", ",", "-", "~", ":", ";", "=", "+", "!", "*", "#", "$", "@", "█" };
         //character width is half of the height
+
+        public ImageDisplayer()
+        {
+            fraction = 1 / ((float)255 / config.luminance.Length + 1);
+        }
 
         /// <summary>
         /// Converts a Image file to a imageclass
@@ -57,7 +63,7 @@ namespace ImageDisplayer
             //Distance between pixel checks (height)
             float adjustedHeightCalc = (float)imageHeight / (float)(imageHeight / (imageWidth / (float)width)) / config.heightToWidthRatio;
             //brightness fraction
-            double fraction = 1 / ((float)255 / config.luminance.Length + 1);
+            
             width--;
             if (cropimage && adjustedHeight > height) adjustedHeight = height - 1;
             //Create 2d color array with deserved size
